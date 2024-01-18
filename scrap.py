@@ -34,13 +34,20 @@ def get_abstract(url):
     doc = get_html(url)
     title = doc.select("h1.content-title")[0].text.strip()
     doiurl = doc.select(".article-meta-doi-link")[0].text.strip()
+
+    # Parse keywords
+    keywords = []
+    keyword_spans = doc.select("div.article-keyword-group-title + div > span")
+    for keyword_span in keyword_spans:
+        keywords.append(keyword_span.text.strip())
+
+    # Parse abstract
+    abstract = ""
     divs = doc.select(".article-abstract h3, .article-abstract p")
-    content = ""
-
     for div in divs:
-        content += f"{div.get_text()}\n"
+        abstract += f"{div.get_text()}\n"
 
-    return {"title": title, "url": doiurl, "content": content}
+    return {"title": title, "url": doiurl, "abstract": abstract, "keywords": keywords}
 
 
 def chatbot(prompt):
@@ -60,7 +67,7 @@ def chatbot(prompt):
 if __name__ == "__main__":
     urls = []
 
-    if (os.path.exists("urls.txt")):
+    if os.path.exists("urls.txt"):
         with open("urls.txt", "r") as f:
             urls = f.read().split("\n")
     else:
@@ -79,7 +86,9 @@ if __name__ == "__main__":
 
         while True:
             try:
-                article['keywords'] = literal_eval(chatbot(prompt + prompt_form + article['content']))
+                article["inferred-keywords"] = literal_eval(
+                    chatbot(prompt + prompt_form + article["abstract"])
+                )
             except Exception as e:
                 print(e)
                 continue
@@ -90,4 +99,3 @@ if __name__ == "__main__":
 
         with open("articles.json", "w") as f:
             json.dump(articles, f)
-
