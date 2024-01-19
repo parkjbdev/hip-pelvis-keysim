@@ -13,6 +13,20 @@ def get_html(url):
 
 
 def get_article_urls():
+    urls = []
+
+    if os.path.exists("urls.txt"):
+        with open("urls.txt", "r") as f:
+            urls = f.read().split("\n")
+    else:
+        urls = fetch_article_urls()
+        with open("urls.txt", "w") as f:
+            for url in urls:
+                f.write(url + "\n")
+    
+    return urls
+
+def fetch_article_urls():
     doc = get_html("https://hipandpelvis.or.kr/index.php?body=archive")
     anchors = doc.select(".accordion-collapse a")
 
@@ -65,17 +79,7 @@ def chatbot(prompt):
 
 
 if __name__ == "__main__":
-    urls = []
-
-    if os.path.exists("urls.txt"):
-        with open("urls.txt", "r") as f:
-            urls = f.read().split("\n")
-    else:
-        urls = get_article_urls()
-        with open("urls.txt", "w") as f:
-            for url in urls:
-                f.write(url + "\n")
-
+    urls = get_article_urls()
     articles = []
 
     prompt = "Return the keyword of the following abstract. "
