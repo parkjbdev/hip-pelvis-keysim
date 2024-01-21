@@ -4,6 +4,8 @@ import json
 from ast import literal_eval
 import os
 from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import pipeline, set_seed
+from transformers import BioGptTokenizer, BioGptForCausalLM
 
 # Progress Bars
 from tqdm import tqdm
@@ -140,18 +142,35 @@ class OllamaChatBot:
 
 
 class HuggingFaceChatBot:
+    # model_id = "emilyalsentzer/Bio_ClinicalBERT"
+    # model_id = "microsoft/biogpt"
+    model_id = "stanford-crfm/BioMedLM"
+
+    @yaspin(text="Initializing huggingface model..")
+    def __init__(self, model="stanford-crfm/BioMedLM"):
+        self.model_id = model
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_id)
+        self.model = AutoModelForCausalLM.from_pretrained(self.model_id)
+        # model = BioGptForCausalLM.from_pretrained(model_id)
+        # tokenizer = BioGptTokenizer.from_pretrained(model_id)
+        print(f"Huggingface Model {model} initialized")
+
     # TODO: integrate huggingface interface
+    @yaspin(text="Waiting for huggingface model to respond..")
     def chat_huggingface(self, prompt):
-        model_id = "mistralai/Mixtral-8x7B-v0.1"
-        tokenizer = AutoTokenizer.from_pretrained(model_id)
+        generator = pipeline(
+            "text-generation",
+            model=self.model,
+            tokenizer=self.tokenizer,
+        )
+        text = generator(
+            prompt,
+            max_length=200,
+            # num_return_sequences=5,
+            # do_sample=True
+        )
 
-        model = AutoModelForCausalLM.from_pretrained(model_id)
-
-        text = "Hello my name is"
-        inputs = tokenizer(text, return_tensors="pt")
-
-        outputs = model.generate(**inputs, max_new_tokens=20)
-        print(tokenizer.decode(outputs[0], skip_special_tokens=True))
+        return text[0]["generated_text"]
 
 
 def compare_keywords(inferred, answer):
@@ -171,18 +190,49 @@ if __name__ == "__main__":
     urls = get_article_urls()
     articles = []
 
-    ollama = OllamaChatBot()
-    prompt = "Return the keyword of the following abstract. "
-    prompt_form = "The answer MUST BE ONLY a python array (such as ['keyword1', 'keyword2', 'keyword3']) since the results will be directly delivered to python code. "
+    # Ollama
+
+    # ollama = OllamaChatBot()
+    # prompt = "Return the keyword of the following abstract. "
+    # prompt_form = "The answer MUST BE ONLY a python array (such as ['keyword1', 'keyword2', 'keyword3']) since the results will be directly delivered to python code. "
+    #
+    # for url in urls:
+    #     article = fetch_abstract(url)
+    #
+    #     while True:
+    #         try:
+    #             article["inferred-keywords"] = literal_eval(
+    #                 ollama.chat(prompt + prompt_form + article["abstract"])
+    #             )
+    #         except Exception as e:
+    #             print("Exception Occurred. Retrying..")
+    #             continue
+    #         break
+    #
+    #     compare_keywords(article["inferred-keywords"], article["keywords"])
+    #
+    #     articles.append(article)
+    #
+    #     with open("articles.json", "w") as f:
+    #         json.dump(articles, f)
+    #
+
+    # HuggingFace
+
+    hugger = HuggingFaceChatBot()
 
     for url in urls:
         article = fetch_abstract(url)
 
         while True:
             try:
-                article["inferred-keywords"] = literal_eval(
-                    ollama.chat(prompt + prompt_form + article["abstract"])
+                hugger_prompt = (
+                    article["abstract"]
+                    + "\n\nThe main keywords delimited by comma are "
                 )
+                keywords = hugger.chat_huggingface(hugger_prompt)[len(hugger_prompt):]
+                article["inferred-keywords"] = keywords
+                print(keywords)
             except Exception as e:
                 print("Exception Occurred. Retrying..")
                 continue
