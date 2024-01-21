@@ -12,6 +12,7 @@ torch = "*"
 torchvision = "*"
 torchaudio = "*"
 yaspin = "*"
+sacremoses = "*"
 
 [dev-packages]
 
